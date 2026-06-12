@@ -1,0 +1,20 @@
+# Generated rollout and graph data
+data/
+
+# Training outputs and checkpoints
+runs/
+*.pth
+*.pt
+*.ckpt
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+.venv/
+.venv-*/
+
+# Local/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
