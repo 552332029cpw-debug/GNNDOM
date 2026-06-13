@@ -154,10 +154,13 @@ EdgeGNN training. With `--save-rgbd`, it additionally stores `rgb` and `depth`.
 
 ## Build Graph Transitions
 
+Full graph mode is the default and uses the known downsampled cloth topology:
+
 ```bash
 python gnndom_graph/cli_build.py \
   --dataf data/smoke \
   --graphf data/smoke_graphs \
+  --graph-mode full \
   --n-his 5 \
   --pred-time-interval 1 \
   --neighbor-radius 0.045
@@ -168,6 +171,44 @@ This creates graph transition files under:
 ```text
 data/smoke_graphs/train/
 data/smoke_graphs/valid/
+```
+
+Visible graph mode follows ManiFabric's `vsbl` branch. It consumes the camera
+fields saved in each step file:
+
+```text
+pointcloud
+downsample_observable_idx
+partial_pc_mapped_idx
+```
+
+and builds graph nodes on the visible pointcloud while supervising labels from
+the matched downsampled cloth particles:
+
+```bash
+python gnndom_graph/cli_build.py \
+  --dataf data/camera_smoke \
+  --graphf data/camera_smoke_vsbl_graphs \
+  --graph-mode vsbl \
+  --n-his 5 \
+  --pred-time-interval 1 \
+  --neighbor-radius 0.045
+```
+
+To build both graph types from the same rollout dataset:
+
+```bash
+python gnndom_graph/cli_build.py \
+  --dataf data/camera_smoke \
+  --graphf data/camera_smoke_graphs \
+  --graph-mode both
+```
+
+This writes:
+
+```text
+data/camera_smoke_graphs/full/train/...
+data/camera_smoke_graphs/vsbl/train/...
 ```
 
 ## Train Dynamic GNN
@@ -185,7 +226,7 @@ Visible/student mode:
 
 ```bash
 python gnndom_model/cli_train.py \
-  --graphf data/smoke_graphs \
+  --graphf data/camera_smoke_vsbl_graphs \
   --out-dir runs/smoke_vsbl \
   --train-mode vsbl \
   --epochs 1 \

@@ -156,6 +156,35 @@ def compute_edge_attr(
     return np.concatenate(edges_blocks, axis=1).astype(np.int64), np.concatenate(attr_blocks, axis=0).astype(np.float32)
 
 
+def compute_visible_edge_attr(
+    pointcloud: np.ndarray,
+    *,
+    cloth_xdim: int,
+    cloth_ydim: int,
+    visible_downsample_idx: np.ndarray,
+    neighbor_radius: float,
+    use_mesh_edge: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    distance_edges = radius_edges(pointcloud, neighbor_radius)
+    mesh_edges = visible_eight_neighbor_edges(cloth_xdim, cloth_ydim, visible_downsample_idx) if use_mesh_edge else np.empty((2, 0), dtype=np.int64)
+
+    edges_blocks = []
+    attr_blocks = []
+    if distance_edges.shape[1] > 0:
+        edges_blocks.append(distance_edges)
+        attr_blocks.append(edge_features(pointcloud, distance_edges, edge_type=(1.0, 0.0)))
+    if mesh_edges.shape[1] > 0:
+        edges_blocks.append(mesh_edges)
+        attr_blocks.append(edge_features(pointcloud, mesh_edges, edge_type=(0.0, 1.0)))
+    if not edges_blocks:
+        if len(pointcloud) >= 2:
+            edges = np.asarray([[0, 1], [1, 0]], dtype=np.int64)
+        else:
+            edges = np.asarray([[0], [0]], dtype=np.int64)
+        return edges, edge_features(pointcloud, edges, edge_type=(0.0, 0.0))
+    return np.concatenate(edges_blocks, axis=1).astype(np.int64), np.concatenate(attr_blocks, axis=0).astype(np.float32)
+
+
 def radius_edges(pointcloud: np.ndarray, radius: float) -> np.ndarray:
     try:
         from scipy.spatial import cKDTree
@@ -193,6 +222,24 @@ def eight_neighbor_edges(cloth_xdim: int, cloth_ydim: int) -> np.ndarray:
     return np.concatenate([np.concatenate([senders_arr, receivers_arr], axis=0), np.concatenate([receivers_arr, senders_arr], axis=0)], axis=1).T.astype(np.int64)
 
 
+def visible_eight_neighbor_edges(cloth_xdim: int, cloth_ydim: int, visible_downsample_idx: np.ndarray) -> np.ndarray:
+    visible_downsample_idx = np.asarray(visible_downsample_idx, dtype=np.int64).reshape(-1)
+    if len(visible_downsample_idx) == 0:
+        return np.empty((2, 0), dtype=np.int64)
+    visible_set = set(int(v) for v in visible_downsample_idx)
+    local_idx = {int(global_idx): local for local, global_idx in enumerate(visible_downsample_idx)}
+    senders = []
+    receivers = []
+    for src, dst in eight_neighbor_edges(cloth_xdim, cloth_ydim).T:
+        src_i, dst_i = int(src), int(dst)
+        if src_i in visible_set and dst_i in visible_set:
+            senders.append(local_idx[src_i])
+            receivers.append(local_idx[dst_i])
+    if not senders:
+        return np.empty((2, 0), dtype=np.int64)
+    return np.asarray([senders, receivers], dtype=np.int64)
+
+
 def edge_features(pointcloud: np.ndarray, edge_index: np.ndarray, edge_type: tuple[float, float]) -> np.ndarray:
     src, dst = edge_index
     disp = pointcloud[src] - pointcloud[dst]
@@ -214,4 +261,3 @@ def quat_to_matrix(q: np.ndarray) -> np.ndarray:
         ],
         dtype=np.float32,
     )
-

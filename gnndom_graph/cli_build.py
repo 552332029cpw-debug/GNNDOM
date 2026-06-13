@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--neighbor-radius", type=float, default=0.045)
     parser.add_argument("--use-mesh-edge", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--use-es", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--graph-mode", choices=("full", "vsbl", "both"), default="full")
     return parser.parse_args()
 
 
@@ -38,6 +39,7 @@ def main() -> None:
         neighbor_radius=args.neighbor_radius,
         use_mesh_edge=args.use_mesh_edge,
         use_es=args.use_es,
+        graph_mode=args.graph_mode,
     )
     saved = build_graphs_from_dataset(cfg)
     print(f"[INFO] saved {len(saved)} graphs to {args.graphf}")
@@ -45,4 +47,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

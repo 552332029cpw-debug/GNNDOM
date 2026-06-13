@@ -69,7 +69,8 @@ class GraphDataset(Dataset):
         with np.load(path) as data:
             item = {key: data[key].copy() for key in data.files}
         node_count = int(item["x"].shape[0])
-        item["partial_pc_mapped_idx"] = np.arange(node_count, dtype=np.int64)
+        if "partial_pc_mapped_idx" not in item:
+            item["partial_pc_mapped_idx"] = np.arange(node_count, dtype=np.int64)
         item["path"] = str(path)
         item["input_type"] = self.input_type
         return item
