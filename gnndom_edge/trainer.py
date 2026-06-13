@@ -19,7 +19,7 @@ from .model import EdgeGNN
 class EdgeTrainConfig:
     graphf: Path
     out_dir: Path
-    epochs: int = 1000
+    epochs: int = 100
     batch_size: int = 16
     lr: float = 1.0e-4
     beta1: float = 0.9
@@ -35,6 +35,8 @@ class EdgeTrainConfig:
     max_valid_graphs: int | None = None
     edge_model_path: Path | None = None
     load_optim: bool = False
+    patience: int = 20
+    min_delta: float = 1.0e-5
     seed: int = 0
 
 
@@ -62,6 +64,7 @@ class EdgeTrainer:
 
     def train(self) -> dict:
         history = []
+        epochs_without_improvement = 0
         for epoch in range(self.start_epoch, self.cfg.epochs + 1):
             train_metrics = self._run_epoch(train=True)
             valid_metrics = self._run_epoch(train=False)
@@ -72,10 +75,19 @@ class EdgeTrainer:
                 f"train_loss={row['train_loss']:.6g} valid_loss={row['valid_loss']:.6g} "
                 f"valid_acc={row['valid_accuracy']:.4f} valid_precision={row['valid_precision']:.4f} valid_recall={row['valid_recall']:.4f}"
             )
-            if row["valid_loss"] < self.best_valid:
+            if row["valid_loss"] < self.best_valid - self.cfg.min_delta:
                 self.best_valid = row["valid_loss"]
                 self._save_checkpoint(epoch, row)
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
             self._write_history(history)
+            if self.cfg.patience > 0 and epochs_without_improvement >= self.cfg.patience:
+                print(
+                    f"[EARLY STOP] valid_loss did not improve by min_delta={self.cfg.min_delta:g} "
+                    f"for {self.cfg.patience} epochs."
+                )
+                break
         return {"best_valid_loss": self.best_valid, "history": history}
 
     def _make_loader(self, phase: str, *, shuffle: bool, max_graphs: int | None) -> DataLoader:

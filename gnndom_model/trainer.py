@@ -44,6 +44,8 @@ class DynamicTrainConfig:
     num_workers: int = 0
     max_train_graphs: int | None = None
     max_valid_graphs: int | None = None
+    patience: int = 20
+    min_delta: float = 1.0e-5
     seed: int = 0
 
 
@@ -71,6 +73,7 @@ class DynamicTrainer:
 
     def train(self) -> dict:
         history = []
+        epochs_without_improvement = 0
         for epoch in range(1, self.cfg.epochs + 1):
             train_metrics = self._run_epoch(train=True)
             valid_metrics = self._run_epoch(train=False)
@@ -81,10 +84,19 @@ class DynamicTrainer:
                 f"train_loss={row['train_loss']:.6g} valid_loss={row['valid_loss']:.6g} "
                 f"train_dyn={row['train_dyn_loss']:.6g} valid_dyn={row['valid_dyn_loss']:.6g}"
             )
-            if row["valid_loss"] < self.best_valid:
+            if row["valid_loss"] < self.best_valid - self.cfg.min_delta:
                 self.best_valid = row["valid_loss"]
                 self._save_checkpoints(epoch, row)
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
             self._write_history(history)
+            if self.cfg.patience > 0 and epochs_without_improvement >= self.cfg.patience:
+                print(
+                    f"[EARLY STOP] valid_loss did not improve by min_delta={self.cfg.min_delta:g} "
+                    f"for {self.cfg.patience} epochs."
+                )
+                break
         return {"best_valid_loss": self.best_valid, "history": history}
 
     def _make_loader(self, phase: str, *, shuffle: bool, max_graphs: int | None) -> DataLoader:

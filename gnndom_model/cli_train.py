@@ -43,6 +43,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--max-train-graphs", type=int, default=None)
     parser.add_argument("--max-valid-graphs", type=int, default=None)
+    parser.add_argument("--patience", type=int, default=20)
+    parser.add_argument("--min-delta", type=float, default=1.0e-5)
     parser.add_argument("--seed", type=int, default=0)
     return parser.parse_args()
 
@@ -77,6 +79,8 @@ def main() -> None:
         num_workers=args.num_workers,
         max_train_graphs=args.max_train_graphs,
         max_valid_graphs=args.max_valid_graphs,
+        patience=args.patience,
+        min_delta=args.min_delta,
         seed=args.seed,
     )
     result = DynamicTrainer(cfg).train()

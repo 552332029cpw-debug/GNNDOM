@@ -87,6 +87,32 @@ By default, dataset generation expects an Isaac camera interface and uses
 `--observation-mode isaac_camera`. For full-graph smoke runs without camera
 observation, pass `--observation-mode full`.
 
+The camera observation path follows ManiFabric's partial-observation flow:
+
+```text
+Isaac RGBD/depth camera
+  -> back-project depth to z-up world pointcloud
+  -> voxelize pointcloud
+  -> match visible pointcloud to downsampled cloth particles
+  -> save pointcloud, downsample_observable_idx, partial_pc_mapped_idx
+```
+
+This corresponds to ManiFabric's `get_rgbd() -> get_world_coords() ->
+get_observable_particle_index_old()/get_observable_particle_index_3()` path.
+The minimum Isaac camera interface is:
+
+```python
+get_depth()              # (H, W) float depth
+get_camera_intrinsics()  # (3, 3)
+get_camera_to_world()    # (4, 4)
+```
+
+or a combined:
+
+```python
+get_rgbd()               # (H, W, 4), rgb in [:3], depth in [3]
+```
+
 ```bash
 python gnndom_dataset/cli_generate.py \
   --dataf data/smoke \
@@ -123,7 +149,8 @@ python gnndom_dataset/cli_generate.py \
 ```
 
 The camera path stores `pointcloud` and `downsample_observable_idx` in every
-step file. With `--save-rgbd`, it also stores `rgb` and `depth`.
+step file. It also stores `partial_pc_mapped_idx` for later visible graph and
+EdgeGNN training. With `--save-rgbd`, it additionally stores `rgb` and `depth`.
 
 ## Build Graph Transitions
 
@@ -146,6 +173,13 @@ data/smoke_graphs/valid/
 ## Train Dynamic GNN
 
 The Dynamic GNN supports the ManiFabric modes `vsbl`, `full`, and `graph_imit`.
+The default training budget is 100 epochs with early stopping:
+
+```text
+--epochs 100
+--patience 20
+--min-delta 1e-5
+```
 
 Visible/student mode:
 
@@ -199,7 +233,14 @@ For production graph imitation, train or load a full teacher first and pass:
 ## Train EdgeGNN
 
 EdgeGNN rebuilds pointcloud radius edges and predicts which candidate edges are
-cloth mesh adjacencies.
+cloth mesh adjacencies. It also defaults to 100 epochs with the same early
+stopping settings:
+
+```text
+--epochs 100
+--patience 20
+--min-delta 1e-5
+```
 
 ```bash
 python gnndom_edge/cli_train_edge.py \
@@ -234,6 +275,7 @@ python gnndom_model/cli_train.py \
   --out-dir runs/vsbl_v1 \
   --train-mode vsbl \
   --epochs 100 \
+  --patience 20 \
   --batch-size 8 \
   --device cuda \
   --proc-layer 10 \
