@@ -195,6 +195,24 @@ python gnndom_graph/cli_build.py \
   --neighbor-radius 0.045
 ```
 
+By default, `vsbl` graph construction uses the simulator-visible particle
+mapping to recover ground-truth visible mesh edges. This matches ManiFabric's
+offline fallback path. To use a trained EdgeGNN to classify visible mesh edges
+instead, pass an EdgeGNN checkpoint:
+
+```bash
+python gnndom_graph/cli_build.py \
+  --dataf data/camera_smoke \
+  --graphf data/camera_smoke_vsbl_edgegnn_graphs \
+  --graph-mode vsbl \
+  --edge-model-path runs/edge/edge_gnn_best.pth \
+  --edge-device cuda \
+  --edge-threshold 0.5
+```
+
+Each saved visible graph records `mesh_edge_source` as either
+`visible_ground_truth`, `edgegnn`, or `none`.
+
 To build both graph types from the same rollout dataset:
 
 ```bash

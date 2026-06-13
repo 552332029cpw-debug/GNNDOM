@@ -25,6 +25,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use-mesh-edge", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--use-es", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--graph-mode", choices=("full", "vsbl", "both"), default="full")
+    parser.add_argument("--edge-model-path", type=Path, default=None, help="Optional EdgeGNN checkpoint for vsbl mesh-edge prediction.")
+    parser.add_argument("--edge-threshold", type=float, default=0.5, help="Sigmoid threshold for EdgeGNN mesh-edge logits.")
+    parser.add_argument("--edge-device", type=str, default="cpu", help="Device used for EdgeGNN inference.")
     return parser.parse_args()
 
 
@@ -40,6 +43,9 @@ def main() -> None:
         use_mesh_edge=args.use_mesh_edge,
         use_es=args.use_es,
         graph_mode=args.graph_mode,
+        edge_model_path=args.edge_model_path,
+        edge_threshold=args.edge_threshold,
+        edge_device=args.edge_device,
     )
     saved = build_graphs_from_dataset(cfg)
     print(f"[INFO] saved {len(saved)} graphs to {args.graphf}")

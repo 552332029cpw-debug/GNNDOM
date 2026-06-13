@@ -164,9 +164,15 @@ def compute_visible_edge_attr(
     visible_downsample_idx: np.ndarray,
     neighbor_radius: float,
     use_mesh_edge: bool,
+    mesh_edges: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     distance_edges = radius_edges(pointcloud, neighbor_radius)
-    mesh_edges = visible_eight_neighbor_edges(cloth_xdim, cloth_ydim, visible_downsample_idx) if use_mesh_edge else np.empty((2, 0), dtype=np.int64)
+    if not use_mesh_edge:
+        mesh_edges = np.empty((2, 0), dtype=np.int64)
+    elif mesh_edges is None:
+        mesh_edges = visible_eight_neighbor_edges(cloth_xdim, cloth_ydim, visible_downsample_idx)
+    else:
+        mesh_edges = np.asarray(mesh_edges, dtype=np.int64).reshape(2, -1)
 
     edges_blocks = []
     attr_blocks = []

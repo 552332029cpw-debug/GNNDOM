@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 import json
 from pathlib import Path
 
@@ -25,6 +26,9 @@ class GraphBuildConfig:
     use_mesh_edge: bool = True
     use_es: bool = True
     graph_mode: str = "full"
+    edge_model_path: Path | None = None
+    edge_threshold: float = 0.5
+    edge_device: str = "cpu"
 
 
 def build_graphs_from_dataset(cfg: GraphBuildConfig) -> list[Path]:
@@ -68,8 +72,11 @@ def build_rollout_graphs(rollout_dir: Path, out_dir: Path, cfg: GraphBuildConfig
         "use_mesh_edge": cfg.use_mesh_edge,
         "use_es": cfg.use_es,
         "graph_mode": graph_mode,
+        "edge_model_path": None if cfg.edge_model_path is None else str(cfg.edge_model_path),
+        "edge_threshold": cfg.edge_threshold,
+        "edge_device": cfg.edge_device,
         "coordinate_system": "z_up_xy_horizontal",
-        "builder_config": {**asdict(cfg), "dataf": str(cfg.dataf), "graphf": str(cfg.graphf)},
+        "builder_config": _json_config(cfg),
     }
     if saved:
         first = np.load(saved[0])
@@ -197,6 +204,15 @@ def build_visible_transition_graph(rollout_dir: Path, rollout_info: dict, timest
     )
 
     node_attr = compute_node_attr(pointcloud_input, velocity_his_input, picked_particles, rollout_info=rollout_info, use_es=cfg.use_es)
+    mesh_edges = None
+    mesh_edge_source = "none"
+    if cfg.use_mesh_edge:
+        if cfg.edge_model_path is not None:
+            predictor = _get_edge_predictor(str(cfg.edge_model_path), cfg.edge_device, cfg.neighbor_radius)
+            mesh_edges = predictor.predict_mesh_edges(pointcloud_input, threshold=cfg.edge_threshold)
+            mesh_edge_source = "edgegnn"
+        else:
+            mesh_edge_source = "visible_ground_truth"
     edge_index, edge_attr = compute_visible_edge_attr(
         pointcloud_input,
         cloth_xdim=cloth_xdim,
@@ -204,6 +220,7 @@ def build_visible_transition_graph(rollout_dir: Path, rollout_info: dict, timest
         visible_downsample_idx=partial_map,
         neighbor_radius=cfg.neighbor_radius,
         use_mesh_edge=cfg.use_mesh_edge,
+        mesh_edges=mesh_edges,
     )
     gt_vel = (down_pos_nxt[partial_map] - down_pos_cur[partial_map]) / np.float32(cfg.dt * cfg.pred_time_interval)
     prev_vel = velocity_his[:, -3:]
@@ -226,4 +243,20 @@ def build_visible_transition_graph(rollout_dir: Path, rollout_info: dict, timest
         "partial_pc_mapped_idx": partial_map.astype(np.int64),
         "downsample_observable_idx": np.asarray(data_cur["downsample_observable_idx"], dtype=np.int64),
         "graph_mode": np.asarray("vsbl"),
+        "mesh_edge_source": np.asarray(mesh_edge_source),
     }
+
+
+def _json_config(cfg: GraphBuildConfig) -> dict:
+    data = asdict(cfg)
+    data["dataf"] = str(cfg.dataf)
+    data["graphf"] = str(cfg.graphf)
+    data["edge_model_path"] = None if cfg.edge_model_path is None else str(cfg.edge_model_path)
+    return data
+
+
+@lru_cache(maxsize=4)
+def _get_edge_predictor(edge_model_path: str, edge_device: str, neighbor_radius: float):
+    from gnndom_edge.infer import EdgeGNNMeshPredictor
+
+    return EdgeGNNMeshPredictor(Path(edge_model_path), device=edge_device, neighbor_radius=float(neighbor_radius))
