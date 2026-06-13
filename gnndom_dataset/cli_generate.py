@@ -35,6 +35,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--env-shape", choices=("None", "platform", "sphere", "rod", "table", "random", "all"), default="None")
     parser.add_argument("--down-sample-scale", type=int, default=3)
     parser.add_argument("--voxel-size", type=float, default=0.0216)
+    parser.add_argument("--observation-mode", choices=("isaac_camera", "full", "geometry_camera"), default="isaac_camera")
+    parser.add_argument("--save-rgbd", action="store_true")
+    parser.add_argument("--camera-width", type=int, default=360)
+    parser.add_argument("--camera-height", type=int, default=360)
+    parser.add_argument("--camera-fov", type=float, default=45.0)
+    parser.add_argument("--camera-pos", type=float, nargs=3, default=(0.0, -0.82, 0.82))
+    parser.add_argument("--camera-look-at", type=float, nargs=3, default=(0.0, 0.0, 0.08))
+    parser.add_argument("--camera-near", type=float, default=0.01)
+    parser.add_argument("--camera-far", type=float, default=5.0)
+    parser.add_argument("--min-visible-points", type=int, default=4)
+    parser.add_argument("--visibility-threshold", type=float, default=0.0216)
     parser.add_argument("--swing-acc", type=float, default=2.0)
     parser.add_argument("--pull-acc", type=float, default=1.0)
     parser.add_argument("--drop-steps", type=int, default=30)
@@ -68,6 +79,17 @@ def main() -> None:
         pull_acc=args.pull_acc,
         drop_steps=args.drop_steps,
         seed=args.seed,
+        observation_mode=args.observation_mode,
+        save_rgbd=args.save_rgbd,
+        camera_width=args.camera_width,
+        camera_height=args.camera_height,
+        camera_fov=args.camera_fov,
+        camera_pos=tuple(args.camera_pos),
+        camera_look_at=tuple(args.camera_look_at),
+        camera_near=args.camera_near,
+        camera_far=args.camera_far,
+        min_visible_points=args.min_visible_points,
+        visibility_threshold=args.visibility_threshold,
     )
     runtime = ClothDropRuntimeConfig(
         device=args.device,
@@ -98,4 +120,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

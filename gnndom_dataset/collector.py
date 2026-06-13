@@ -10,8 +10,9 @@ import numpy as np
 
 from gnndom_env import ClothDropConfig, ClothDropRuntimeConfig, ManiFabricClothDropSampler, NewtonClothDropEnv
 from gnndom_env.geometry import drop_point_indices, flat_positions, target_picker_positions
+from gnndom_obs import CameraConfig
 
-from .sampling import approximate_pointcloud, downsample_indices, observable_indices
+from .sampling import downsample_indices, full_observation, geometry_camera_observation, isaac_camera_observation
 from .storage import save_rollout_info, save_step
 from .trajectory import collect_trajectory
 
@@ -28,6 +29,17 @@ class DatasetGenerationConfig:
     pull_acc: float = 1.0
     drop_steps: int = 30
     seed: int = 43
+    observation_mode: str = "isaac_camera"
+    save_rgbd: bool = False
+    camera_width: int = 360
+    camera_height: int = 360
+    camera_fov: float = 45.0
+    camera_pos: tuple[float, float, float] = (0.0, -0.82, 0.82)
+    camera_look_at: tuple[float, float, float] = (0.0, 0.0, 0.08)
+    camera_near: float = 0.01
+    camera_far: float = 5.0
+    min_visible_points: int = 4
+    visibility_threshold: float = 0.0216
 
 
 class DataCollector:
@@ -119,13 +131,11 @@ class DataCollector:
             scene_cfg.cloth_ydim,
             self.cfg.down_sample_scale,
         )
-        downsample_observable_idx = observable_indices(downsample_idx)
-        pointcloud = approximate_pointcloud(positions, downsample_idx, self.cfg.voxel_size)
+        observation, camera_metadata = self._sample_observation(env, positions, downsample_idx)
         step_data = {
             "positions": positions,
             "picker_position": picker_position,
-            "downsample_observable_idx": downsample_observable_idx,
-            "pointcloud": pointcloud,
+            **observation,
         }
         if not env_info:
             return step_data
@@ -144,8 +154,12 @@ class DataCollector:
             "x_target": np.asarray(scene_cfg.x_target, dtype=np.float32),
             "rot_angle": np.asarray(scene_cfg.rot_angle, dtype=np.float32),
             "env_shape": scene_cfg.env_shape,
+            "observation_mode": self.cfg.observation_mode,
+            "camera_config": self._camera_config().to_dict() if self.cfg.observation_mode != "full" else None,
+            "camera_coordinate_system": "z_up_xy_horizontal",
             "coordinate_system": "z_up_xy_horizontal",
         }
+        rollout_info.update(camera_metadata)
         if scene_cfg.obstacle is not None:
             rollout_info.update(
                 {
@@ -156,3 +170,51 @@ class DataCollector:
             )
         return step_data, rollout_info
 
+    def _sample_observation(self, env: NewtonClothDropEnv, positions: np.ndarray, downsample_idx: np.ndarray) -> tuple[dict, dict]:
+        mode = self.cfg.observation_mode
+        camera_metadata: dict = {}
+        if mode == "full":
+            observation = full_observation(positions, downsample_idx, self.cfg.voxel_size)
+        elif mode == "geometry_camera":
+            camera_cfg = self._camera_config()
+            observation = geometry_camera_observation(
+                positions,
+                downsample_idx,
+                camera_cfg=camera_cfg,
+                visibility_threshold=self.cfg.visibility_threshold,
+            )
+            camera_metadata = {
+                "camera_intrinsics": camera_cfg.intrinsics(),
+                "camera_extrinsics": camera_cfg.camera_to_world(),
+            }
+        elif mode == "isaac_camera":
+            observation, camera_metadata = isaac_camera_observation(
+                env,
+                positions,
+                downsample_idx,
+                camera_cfg=self._camera_config(),
+                visibility_threshold=self.cfg.visibility_threshold,
+                save_rgbd=self.cfg.save_rgbd,
+            )
+        else:
+            raise ValueError("observation_mode must be one of: isaac_camera, full, geometry_camera")
+
+        visible_count = int(len(observation["downsample_observable_idx"]))
+        if mode != "full" and visible_count < int(self.cfg.min_visible_points):
+            raise RuntimeError(
+                f"{mode} produced only {visible_count} visible downsample points; "
+                f"min_visible_points={self.cfg.min_visible_points}. Adjust camera pose or threshold."
+            )
+        return observation, camera_metadata
+
+    def _camera_config(self) -> CameraConfig:
+        return CameraConfig(
+            camera_pos=tuple(self.cfg.camera_pos),
+            camera_look_at=tuple(self.cfg.camera_look_at),
+            width=int(self.cfg.camera_width),
+            height=int(self.cfg.camera_height),
+            fov=float(self.cfg.camera_fov),
+            near=float(self.cfg.camera_near),
+            far=float(self.cfg.camera_far),
+            voxel_size=float(self.cfg.voxel_size),
+        )

@@ -83,6 +83,10 @@ Expected output includes a line like:
 
 ## Generate Rollout Dataset
 
+By default, dataset generation expects an Isaac camera interface and uses
+`--observation-mode isaac_camera`. For full-graph smoke runs without camera
+observation, pass `--observation-mode full`.
+
 ```bash
 python gnndom_dataset/cli_generate.py \
   --dataf data/smoke \
@@ -91,6 +95,7 @@ python gnndom_dataset/cli_generate.py \
   --cloth-xdim 4 \
   --cloth-ydim 4 \
   --device cpu \
+  --observation-mode full \
   --substeps 1 \
   --iterations 1
 ```
@@ -102,6 +107,23 @@ data/smoke/train/0/rollout_info.json
 data/smoke/train/0/0.npz
 data/smoke/valid/0/...
 ```
+
+Isaac camera dataset generation:
+
+```bash
+python gnndom_dataset/cli_generate.py \
+  --dataf data/camera_smoke \
+  --n-rollout 2 \
+  --train-valid-ratio 0.5 \
+  --cloth-xdim 4 \
+  --cloth-ydim 4 \
+  --device cuda \
+  --observation-mode isaac_camera \
+  --save-rgbd
+```
+
+The camera path stores `pointcloud` and `downsample_observable_idx` in every
+step file. With `--save-rgbd`, it also stores `rgb` and `depth`.
 
 ## Build Graph Transitions
 
