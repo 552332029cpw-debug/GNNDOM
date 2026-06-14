@@ -18,3 +18,8 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+
+# Cache and logs
+.warp_cache/
+logs/
+package-lock.json
