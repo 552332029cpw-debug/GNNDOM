@@ -52,12 +52,9 @@ def geometry_camera_observation(
     depth, visible_particle_idx = depth_from_points(positions, camera_cfg)
     downsample_idx = np.asarray(downsample_idx, dtype=np.int64)
     downsampled_positions = np.asarray(positions, dtype=np.float32)[downsample_idx]
-    visible_full_mask = np.zeros(len(positions), dtype=bool)
-    visible_full_mask[visible_particle_idx] = True
-    downsample_visible_mask = visible_full_mask[downsample_idx]
-    visible_downsample_pos = downsampled_positions[downsample_visible_mask]
+    visible_pointcloud = np.asarray(positions, dtype=np.float32)[visible_particle_idx]
     obs = visible_observation_from_pointcloud(
-        visible_downsample_pos,
+        visible_pointcloud,
         downsampled_positions,
         voxel_size=camera_cfg.voxel_size,
         threshold=visibility_threshold,

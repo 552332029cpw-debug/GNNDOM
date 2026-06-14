@@ -34,8 +34,8 @@ class DatasetGenerationConfig:
     camera_width: int = 360
     camera_height: int = 360
     camera_fov: float = 45.0
-    camera_pos: tuple[float, float, float] = (0.0, -0.82, 0.82)
-    camera_look_at: tuple[float, float, float] = (0.0, 0.0, 0.08)
+    camera_pos: tuple[float, float, float] = (1.2, 0.0, 0.7)
+    camera_look_at: tuple[float, float, float] = (0.0, 0.0, 0.2)
     camera_near: float = 0.01
     camera_far: float = 5.0
     min_visible_points: int = 4

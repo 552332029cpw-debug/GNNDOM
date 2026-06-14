@@ -12,12 +12,12 @@ import numpy as np
 class CameraConfig:
     """Pinhole camera config in the public GNNDOM z-up frame.
 
-    The default view is an oblique top-front camera aimed at the cloth workspace.
+    The default view is an oblique front camera aimed at the vertical cloth face.
     ``x`` and ``y`` span the horizontal plane; ``z`` is height.
     """
 
-    camera_pos: tuple[float, float, float] = (0.0, -0.82, 0.82)
-    camera_look_at: tuple[float, float, float] = (0.0, 0.0, 0.08)
+    camera_pos: tuple[float, float, float] = (1.2, 0.0, 0.7)
+    camera_look_at: tuple[float, float, float] = (0.0, 0.0, 0.2)
     camera_up: tuple[float, float, float] = (0.0, 0.0, 1.0)
     width: int = 360
     height: int = 360
