@@ -16,6 +16,7 @@ def collect_trajectory(
     pull_acc: float = 1.0,
     drop_steps: int = 30,
 ) -> np.ndarray:
+    """Return grasped fling actions followed by zero-grasp release steps."""
     xy_trans = float(rng.uniform(0.1, 0.5))
     z_ratio = float(rng.uniform(0.1, 0.5))
 
@@ -96,4 +97,3 @@ def generate_trajectory(current_picker_position: np.ndarray, target_picker_posit
         positions.append(vertices.astype(np.float32))
 
     return np.asarray(positions, dtype=np.float32)
-

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
 from typing import Any
 
 import numpy as np
@@ -77,6 +76,9 @@ class OnlineVisibleGraphBuilder:
             "geometric_target_pos": np.asarray(target_state["geometric_target_pos"], dtype=np.float32),
             "target_picker_pos": np.asarray(target_state["target_picker_pos"], dtype=np.float32),
             "target_settle_steps": np.asarray(target_state["target_settle_steps"], dtype=np.int32),
+            "target_source": target_state.get("target_source", "physical_settled"),
+            "geometric_target_source": target_state.get("geometric_target_source", "flat_fold_pre_settle"),
+            "target_release_grasp": np.asarray(target_state.get("target_release_grasp", 0), dtype=np.int32),
             "drop_point_idx": drop_point_indices_zup(scene_cfg.cloth_xdim, scene_cfg.cloth_ydim),
             "ClothSize": np.asarray([scene_cfg.cloth_xdim, scene_cfg.cloth_ydim], dtype=np.int64),
             "ClothStiff": np.asarray(scene_cfg.cloth_stiff, dtype=np.float32),
@@ -283,39 +285,3 @@ def keypoint_indices_zup(cloth_xdim: int, cloth_ydim: int) -> np.ndarray:
 
 def drop_point_indices_zup(cloth_xdim: int, cloth_ydim: int) -> np.ndarray:
     return keypoint_indices_zup(cloth_xdim, cloth_ydim)[:2].copy()
-
-
-def target_picker_positions_zup(scene_cfg: Any) -> np.ndarray:
-    return flat_positions_zup(scene_cfg)[drop_point_indices_zup(scene_cfg.cloth_xdim, scene_cfg.cloth_ydim)].astype(np.float32)
-
-
-def flat_positions_zup(scene_cfg: Any) -> np.ndarray:
-    xdim, ydim = scene_cfg.cloth_size
-    particle_radius = float(scene_cfg.cloth_particle_radius)
-    x = np.asarray([i * particle_radius for i in range(xdim)], dtype=np.float32)
-    y = np.asarray([i * particle_radius for i in range(ydim)], dtype=np.float32)
-    y = y - np.mean(y)
-    x += np.float32(scene_cfg.x_target)
-    xx, yy = np.meshgrid(x, y)
-    pos = np.zeros((xdim * ydim, 3), dtype=np.float32)
-    pos[:, 0] = xx.flatten()
-    pos[:, 1] = yy.flatten()
-    pos[:, 2] = np.float32(scene_cfg.target_height)
-    if scene_cfg.target_type == "fold":
-        folded_x = xx.flatten().copy()
-        mean_x = np.mean(folded_x, dtype=np.float32)
-        pos[folded_x < mean_x, 2] += np.float32(particle_radius)
-        folded_x[folded_x > mean_x] = mean_x - (folded_x[folded_x > mean_x] - mean_x)
-        pos[:, 0] = folded_x
-    if abs(float(scene_cfg.rot_angle)) > 1.0e-8:
-        rot_angle = float(scene_cfg.rot_angle)
-        rot = np.asarray(
-            [
-                [math.cos(rot_angle), -math.sin(rot_angle), 0.0],
-                [math.sin(rot_angle), math.cos(rot_angle), 0.0],
-                [0.0, 0.0, 1.0],
-            ],
-            dtype=np.float32,
-        )
-        pos = (rot @ pos.T).T.astype(np.float32)
-    return pos

@@ -71,7 +71,7 @@ or adjust `gnndom_env/newton_backend.py` to point at the local Newton checkout.
 python scripts/smoke_env.py \
   --cloth-xdim 4 \
   --cloth-ydim 4 \
-  --env-shape None \
+  --env-shape sphere \
   --device cpu
 ```
 
@@ -79,6 +79,45 @@ Expected output includes a line like:
 
 ```text
 [SMOKE] ok ...
+```
+
+## Target Semantics
+
+`target_pos` is the physically settled cloth state, not the raw geometric
+flat/fold placement. The environment first builds the obstacle scene, places
+the cloth in `geometric_target_pos`, releases both pickers
+(`target_release_grasp = 0`), and simulates until the cloth settles. This
+matches ManiFabric's target-generation path and keeps obstacle scenes reachable:
+for example, a sphere target becomes cloth draped on the sphere rather than a
+flat sheet floating through it.
+
+The dataset and online planner preserve both states:
+
+```text
+target_pos             physical release-and-settle target used for rewards/training
+geometric_target_pos   pre-settle flat/fold seed, saved only for debug/visualization
+target_picker_pos      geometric picker goal used to generate the fling path
+target_settle_steps    number of simulation steps used by target settling
+target_source          physical_settled
+```
+
+Because this changes the supervision target, regenerate datasets, graph files,
+and checkpoints made before this alignment change.
+
+To inspect one sampled scene numerically:
+
+```bash
+python scripts/check_physical_target.py \
+  --env-shape sphere \
+  --device cpu
+```
+
+To view the obstacle, settled target, and optional geometric pre-settle ghost:
+
+```bash
+python scripts/view_physical_target.py \
+  --env-shape sphere \
+  --viewer gl
 ```
 
 ## Generate Rollout Dataset
@@ -123,7 +162,9 @@ python gnndom_dataset/cli_generate.py \
   --device cpu \
   --observation-mode full \
   --substeps 1 \
-  --iterations 1
+  --iterations 1 \
+  --settle-steps 420 \
+  --min-stable-steps 100
 ```
 
 This creates:

@@ -8,7 +8,7 @@ from dataclasses import asdict
 import numpy as np
 
 from .config import ClothDropConfig, ClothDropRuntimeConfig
-from .geometry import drop_point_indices, flat_positions, target_picker_positions, vertical_positions
+from .geometry import drop_point_indices, geometric_target_positions, target_picker_positions, vertical_positions
 from .newton_backend import (
     SIM_SCALE,
     build_model_from_config,
@@ -65,7 +65,7 @@ class NewtonClothDropEnv:
     def setup(self, *, initial: str = "vertical") -> None:
         configure_device(self.runtime.device)
         if initial == "target":
-            initial_positions = flat_positions(self.cfg)
+            initial_positions = geometric_target_positions(self.cfg)
         elif initial == "vertical":
             initial_positions = None
         else:
@@ -81,7 +81,7 @@ class NewtonClothDropEnv:
         self.enable_fixed_pickers()
 
     def reset_to_target(self, *, grasp: bool = True) -> None:
-        self._build(initial_positions=flat_positions(self.cfg))
+        self._build(initial_positions=geometric_target_positions(self.cfg))
         grasp_flags = np.ones(2, dtype=np.int32) if grasp else np.zeros(2, dtype=np.int32)
         self.set_picker_positions(target_picker_positions(self.cfg), grasp_flags=grasp_flags)
 
@@ -99,12 +99,15 @@ class NewtonClothDropEnv:
 
     def target_state(self, *, force: bool = False) -> dict:
         target_pos = self.settled_target_positions(force=force)
-        geometric_target_pos = flat_positions(self.cfg).astype(np.float32)
+        geometric_target_pos = geometric_target_positions(self.cfg).astype(np.float32)
         return {
             "target_pos": target_pos,
             "geometric_target_pos": geometric_target_pos,
             "target_picker_pos": target_picker_positions(self.cfg).astype(np.float32),
             "target_settle_steps": np.asarray(self._settled_target_steps if self._settled_target_steps is not None else -1, dtype=np.int32),
+            "target_source": "physical_settled",
+            "geometric_target_source": "flat_fold_pre_settle",
+            "target_release_grasp": np.asarray(0, dtype=np.int32),
         }
 
     def step(self) -> None:

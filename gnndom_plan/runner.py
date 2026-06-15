@@ -100,6 +100,11 @@ class PlanRunner:
             "visible_rewards": visible_rewards,
             "cloth_size": [scene_cfg.cloth_xdim, scene_cfg.cloth_ydim],
             "env_shape": scene_cfg.env_shape,
+            "target_source": init_state.rollout_info.get("target_source"),
+            "geometric_target_source": init_state.rollout_info.get("geometric_target_source"),
+            "target_release_grasp": int(np.asarray(init_state.rollout_info.get("target_release_grasp", -1))),
+            "target_settle_steps": int(np.asarray(init_state.rollout_info.get("target_settle_steps", -1))),
+            "drop_steps": int(self.cfg.drop_steps),
         }
         write_json(episode_dir / "metrics.json", metrics)
         return metrics

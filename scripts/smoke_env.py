@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 import numpy as np
 
 from gnndom_env import ClothDropConfig, ClothDropRuntimeConfig, ManiFabricClothDropSampler, NewtonClothDropEnv
-from gnndom_env.geometry import flat_positions, vertical_positions
+from gnndom_env.geometry import geometric_target_positions, vertical_positions
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,7 +33,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=int, default=60)
     parser.add_argument("--substeps", type=int, default=1)
     parser.add_argument("--iterations", type=int, default=1)
-    parser.add_argument("--settle-steps", type=int, default=2)
+    parser.add_argument("--settle-steps", type=int, default=420)
+    parser.add_argument("--min-stable-steps", type=int, default=100)
     parser.add_argument("--velocity-threshold", type=float, default=0.03)
     return parser.parse_args()
 
@@ -59,7 +60,7 @@ def main() -> None:
         iterations=args.iterations,
         settle_steps=args.settle_steps,
         velocity_threshold=args.velocity_threshold,
-        min_stable_steps=0,
+        min_stable_steps=args.min_stable_steps,
     )
     env = NewtonClothDropEnv(cfg, runtime)
     env.setup(initial="vertical")
@@ -71,14 +72,18 @@ def main() -> None:
     expected_shape = (cfg.cloth_xdim * cfg.cloth_ydim, 3)
     if positions.shape != expected_shape:
         raise RuntimeError(f"positions shape {positions.shape} != {expected_shape}")
-    if flat_positions(cfg).shape != expected_shape:
-        raise RuntimeError("flat target shape mismatch")
+    if geometric_target_positions(cfg).shape != expected_shape:
+        raise RuntimeError("geometric target shape mismatch")
     if vertical_positions(cfg).shape != expected_shape:
         raise RuntimeError("vertical target shape mismatch")
     if pickers.shape != (2, 3):
         raise RuntimeError(f"picker shape {pickers.shape} != (2, 3)")
     if "target_pos" not in current_config or "target_picker_pos" not in current_config:
         raise RuntimeError("current config is missing target fields")
+    if current_config.get("target_source") != "physical_settled":
+        raise RuntimeError(f"target_source must be physical_settled, got {current_config.get('target_source')!r}")
+    if int(np.asarray(current_config.get("target_release_grasp", -1))) != 0:
+        raise RuntimeError("target generation must release picker grasp before settling")
 
     print(
         "[SMOKE] ok "
@@ -88,10 +93,15 @@ def main() -> None:
         f"steps={steps} positions={positions.shape} pickers={pickers.shape}"
     )
     print(f"[SMOKE] target_x={cfg.x_target:.6f} rot_angle={cfg.rot_angle:.6f}")
+    print(
+        "[SMOKE] target "
+        f"source={current_config['target_source']} "
+        f"release_grasp={int(np.asarray(current_config['target_release_grasp']))} "
+        f"settle_steps={int(np.asarray(current_config['target_settle_steps']))}"
+    )
     if cfg.obstacle is not None:
         print(f"[SMOKE] obstacle size={cfg.obstacle.shape_size} pos={cfg.obstacle.shape_pos}")
 
 
 if __name__ == "__main__":
     main()
-

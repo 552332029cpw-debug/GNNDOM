@@ -10,7 +10,7 @@ import numpy as np
 from gnndom_plan.actions import split_action
 from gnndom_plan.config import PlanConfig
 from gnndom_plan.graph import OnlineVisibleGraphBuilder, build_online_velocity_history, downsample_indices
-from gnndom_plan.planner import actions_from_picker_trajectory, generate_trajectory_zup
+from gnndom_plan.planner import MPCPlanner, actions_from_picker_trajectory, generate_trajectory_zup
 
 
 class PlanUtilityTests(unittest.TestCase):
@@ -43,6 +43,17 @@ class PlanUtilityTests(unittest.TestCase):
         np.testing.assert_allclose(trajectory[0], current)
         self.assertGreater(float(trajectory[-1, :, 2].mean()), float(trajectory[0, :, 2].mean()))
 
+    def test_planner_trajectory_releases_grasp_during_drop_tail(self) -> None:
+        cfg = PlanConfig(dyn_path=__file__, drop_steps=3)
+        planner = MPCPlanner(cfg, dynamics=None)  # type: ignore[arg-type]
+        current = np.asarray([[0.0, 0.0, 0.1], [0.1, 0.0, 0.1]], dtype=np.float32)
+        target = np.asarray([[0.1, 0.1, 0.2], [0.2, 0.1, 0.2]], dtype=np.float32)
+        actions, _ = planner._collect_trajectory(current, target)
+
+        self.assertGreater(len(actions), cfg.drop_steps)
+        np.testing.assert_allclose(actions[:-cfg.drop_steps, [3, 7]], 1.0)
+        np.testing.assert_allclose(actions[-cfg.drop_steps:], np.zeros((cfg.drop_steps, 8), dtype=np.float32))
+
     def test_downsample_indices_row_major(self) -> None:
         indices, xdim, ydim = downsample_indices(4, 4, 2)
         np.testing.assert_array_equal(indices, np.asarray([0, 2, 8, 10], dtype=np.int64))
@@ -64,6 +75,9 @@ class PlanUtilityTests(unittest.TestCase):
                     "geometric_target_pos": np.zeros((4, 3), dtype=np.float32),
                     "target_picker_pos": np.ones((2, 3), dtype=np.float32),
                     "target_settle_steps": np.asarray(12, dtype=np.int32),
+                    "target_source": "physical_settled",
+                    "geometric_target_source": "flat_fold_pre_settle",
+                    "target_release_grasp": np.asarray(0, dtype=np.int32),
                 }
 
         class FakeScene:
@@ -90,6 +104,9 @@ class PlanUtilityTests(unittest.TestCase):
         np.testing.assert_allclose(info["target_pos"], np.full((4, 3), 7.0, dtype=np.float32))
         np.testing.assert_allclose(info["geometric_target_pos"], np.zeros((4, 3), dtype=np.float32))
         self.assertEqual(int(info["target_settle_steps"]), 12)
+        self.assertEqual(info["target_source"], "physical_settled")
+        self.assertEqual(info["geometric_target_source"], "flat_fold_pre_settle")
+        self.assertEqual(int(info["target_release_grasp"]), 0)
 
 
 if __name__ == "__main__":

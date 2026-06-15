@@ -3,7 +3,7 @@
 
 from .cloth_drop_env import NewtonClothDropEnv
 from .config import ClothDropConfig, ClothDropRuntimeConfig, ObstacleConfig
-from .geometry import drop_point_indices, flat_positions, keypoint_indices, target_picker_positions, triangle_indices, vertical_positions
+from .geometry import drop_point_indices, flat_positions, geometric_target_positions, keypoint_indices, target_picker_positions, triangle_indices, vertical_positions
 from .sampler import ManiFabricClothDropSampler
 
 __all__ = [
@@ -14,9 +14,9 @@ __all__ = [
     "ObstacleConfig",
     "drop_point_indices",
     "flat_positions",
+    "geometric_target_positions",
     "keypoint_indices",
     "target_picker_positions",
     "triangle_indices",
     "vertical_positions",
 ]
-

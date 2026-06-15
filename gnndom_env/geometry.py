@@ -37,7 +37,8 @@ def drop_point_indices(cloth_xdim: int, cloth_ydim: int) -> np.ndarray:
     return keypoint_indices(cloth_xdim, cloth_ydim)[:2].copy()
 
 
-def flat_positions(cfg: ClothDropConfig, *, fold: bool | None = None) -> np.ndarray:
+def geometric_target_positions(cfg: ClothDropConfig, *, fold: bool | None = None) -> np.ndarray:
+    """Pre-settle flat/fold target placement used to seed physical targets."""
     xdim, ydim = cfg.cloth_size
     particle_radius = cfg.cloth_particle_radius
     x = np.asarray([i * particle_radius for i in range(xdim)], dtype=np.float32)
@@ -72,6 +73,11 @@ def flat_positions(cfg: ClothDropConfig, *, fold: bool | None = None) -> np.ndar
     return pos
 
 
+def flat_positions(cfg: ClothDropConfig, *, fold: bool | None = None) -> np.ndarray:
+    """Backward-compatible alias for the pre-settle geometric target."""
+    return geometric_target_positions(cfg, fold=fold)
+
+
 def vertical_positions(cfg: ClothDropConfig) -> np.ndarray:
     xdim, ydim = cfg.cloth_size
     particle_radius = cfg.cloth_particle_radius
@@ -89,7 +95,7 @@ def vertical_positions(cfg: ClothDropConfig) -> np.ndarray:
 
 
 def target_picker_positions(cfg: ClothDropConfig) -> np.ndarray:
-    return flat_positions(cfg)[drop_point_indices(cfg.cloth_xdim, cfg.cloth_ydim)].astype(np.float32)
+    return geometric_target_positions(cfg)[drop_point_indices(cfg.cloth_xdim, cfg.cloth_ydim)].astype(np.float32)
 
 
 def triangle_indices(cloth_xdim: int, cloth_ydim: int) -> np.ndarray:

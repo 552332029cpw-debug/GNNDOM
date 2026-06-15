@@ -76,6 +76,11 @@ def build_rollout_graphs(rollout_dir: Path, out_dir: Path, cfg: GraphBuildConfig
         "edge_threshold": cfg.edge_threshold,
         "edge_device": cfg.edge_device,
         "coordinate_system": "z_up_xy_horizontal",
+        "target_source": rollout_info.get("target_source", "legacy_unknown"),
+        "geometric_target_source": rollout_info.get("geometric_target_source", "legacy_unknown"),
+        "target_release_grasp": rollout_info.get("target_release_grasp", None),
+        "target_settle_steps": rollout_info.get("target_settle_steps", None),
+        "has_geometric_target_pos": "geometric_target_pos" in rollout_info,
         "builder_config": _json_config(cfg),
     }
     if saved:

@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 import numpy as np
 
 from gnndom_env import ClothDropConfig, ClothDropRuntimeConfig, ManiFabricClothDropSampler, NewtonClothDropEnv
-from gnndom_env.geometry import flat_positions, target_picker_positions, triangle_indices
+from gnndom_env.geometry import geometric_target_positions, target_picker_positions, triangle_indices
 from gnndom_env.newton_backend import SIM_SCALE, soft_to_newton_positions, wp
 
 import newton.examples  # noqa: E402
@@ -57,7 +57,7 @@ class PhysicalTargetViewer:
         self.env.reset_to_target(grasp=False)
         steps = self.env.step_until_stable()
         target_pos = self.env.current_positions().astype(np.float32)
-        geometric_target_pos = flat_positions(self.cfg).astype(np.float32)
+        geometric_target_pos = geometric_target_positions(self.cfg).astype(np.float32)
 
         self.geometric_points = wp.array(
             soft_to_newton_positions(geometric_target_pos) * np.float32(SIM_SCALE),
