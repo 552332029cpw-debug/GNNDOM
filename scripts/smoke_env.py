@@ -33,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=int, default=60)
     parser.add_argument("--substeps", type=int, default=1)
     parser.add_argument("--iterations", type=int, default=1)
+    parser.add_argument("--air-drag", type=float, default=0.0)
     parser.add_argument("--settle-steps", type=int, default=420)
     parser.add_argument("--min-stable-steps", type=int, default=100)
     parser.add_argument("--velocity-threshold", type=float, default=0.03)
@@ -58,6 +59,7 @@ def main() -> None:
         fps=args.fps,
         substeps=args.substeps,
         iterations=args.iterations,
+        air_drag=args.air_drag,
         settle_steps=args.settle_steps,
         velocity_threshold=args.velocity_threshold,
         min_stable_steps=args.min_stable_steps,

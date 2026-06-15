@@ -36,6 +36,10 @@ class ManiFabricClothDropSampler:
         vary_mass: bool = False,
         vary_orientation: bool = False,
         env_shape: EnvShapeMode = None,
+        x_target: float | None = None,
+        rot_angle: float | None = None,
+        shape_size: tuple[float, ...] | None = None,
+        shape_pos: tuple[float, float, float] | None = None,
     ):
         self.rng = np.random.default_rng(seed)
         self.base_cfg = base_cfg or ClothDropConfig()
@@ -45,6 +49,10 @@ class ManiFabricClothDropSampler:
         self.vary_mass = vary_mass
         self.vary_orientation = vary_orientation
         self.env_shape = env_shape
+        self.x_target = x_target
+        self.rot_angle = rot_angle
+        self.shape_size = shape_size
+        self.shape_pos = shape_pos
 
     def sample(self, config_id: int) -> ClothDropConfig:
         cfg = self.base_cfg
@@ -63,9 +71,19 @@ class ManiFabricClothDropSampler:
 
         target_type = self._sample_target_type()
         rot_angle = float(self.rng.uniform(*MANIFABRIC_ROT_RANGE)) if self.vary_orientation else cfg.rot_angle
-        x_target = float(self.rng.uniform(*MANIFABRIC_TARGET_X_RANGE))
+        if self.rot_angle is not None:
+            rot_angle = float(self.rot_angle)
+        x_target = float(self.rng.uniform(*MANIFABRIC_TARGET_X_RANGE)) if self.x_target is None else float(self.x_target)
         env_shape = self._select_env_shape(config_id)
-        obstacle = make_obstacle(env_shape, x_target, xdim, cfg.cloth_particle_radius, rot_angle)
+        obstacle = make_obstacle(
+            env_shape,
+            x_target,
+            xdim,
+            cfg.cloth_particle_radius,
+            rot_angle,
+            shape_size=self.shape_size,
+            shape_pos=self.shape_pos,
+        )
         vertical_height_low = float(self.rng.uniform(0.1, 0.15))
         if env_shape == "rod":
             vertical_height_low += 0.1
@@ -96,4 +114,3 @@ class ManiFabricClothDropSampler:
         if self.env_shape == "all":
             return (None, "platform", "sphere", "rod", "table")[config_id % 5]  # type: ignore[return-value]
         return self.env_shape  # type: ignore[return-value]
-

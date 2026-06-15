@@ -17,6 +17,24 @@ def yaw_quat_soft(rot_angle: float) -> tuple[float, float, float, float]:
     return (0.0, 0.0, math.sin(rot_angle / 2.0), math.cos(rot_angle / 2.0))
 
 
+def quat_multiply_xyzw(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    return (
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+        aw * bw - ax * bx - ay * by - az * bz,
+    )
+
+
+def horizontal_rod_quat_soft(rot_angle: float) -> tuple[float, float, float, float]:
+    yaw = yaw_quat_soft(rot_angle)
+    # Rotation about x-axis by -90°: maps capsule z-axis → y-axis
+    z_to_y = (-math.sin(math.pi / 4.0), 0.0, 0.0, math.cos(math.pi / 4.0))
+    return quat_multiply_xyzw(yaw, z_to_y)
+
+
 def rotate_z(point: np.ndarray, rot_angle: float) -> np.ndarray:
     rot = np.array(
         [
@@ -110,7 +128,16 @@ def triangle_indices(cloth_xdim: int, cloth_ydim: int) -> np.ndarray:
     return np.asarray(indices, dtype=np.int32).reshape(-1, 3)
 
 
-def make_obstacle(env_shape: EnvShape | None, x_target: float, cloth_xdim: int, particle_radius: float, rot_angle: float) -> ObstacleConfig | None:
+def make_obstacle(
+    env_shape: EnvShape | None,
+    x_target: float,
+    cloth_xdim: int,
+    particle_radius: float,
+    rot_angle: float,
+    *,
+    shape_size: tuple[float, ...] | None = None,
+    shape_pos: tuple[float, float, float] | None = None,
+) -> ObstacleConfig | None:
     if env_shape is None:
         return None
 
@@ -124,15 +151,20 @@ def make_obstacle(env_shape: EnvShape | None, x_target: float, cloth_xdim: int, 
         pos = rotate_z(np.array([center_x, 0.0, 0.0], dtype=np.float32), rot_angle)
         quat = (0.0, 0.0, 0.0, 1.0)
     elif env_shape == "rod":
-        size = (0.01, 0.25)
-        pos = rotate_z(np.array([center_x, 0.0, 0.1], dtype=np.float32), rot_angle)
-        quat = (0.0, 0.0, math.sin((rot_angle + math.pi / 2.0) / 2.0), math.cos((rot_angle + math.pi / 2.0) / 2.0))
+        size = (0.002, 0.35)
+        pos = rotate_z(np.array([center_x, 0.0, 0.15], dtype=np.float32), rot_angle)
+        quat = horizontal_rod_quat_soft(rot_angle)
     elif env_shape == "table":
         size = (0.1, 0.1, 0.02)
         pos = rotate_z(np.array([center_x, 0.0, 0.1], dtype=np.float32), rot_angle)
         quat = yaw_quat_soft(rot_angle)
     else:
         raise ValueError(f"Unknown env_shape: {env_shape}")
+
+    if shape_size is not None:
+        size = tuple(float(v) for v in shape_size)
+    if shape_pos is not None:
+        pos = np.asarray(shape_pos, dtype=np.float32)
 
     return ObstacleConfig(
         env_shape=env_shape,

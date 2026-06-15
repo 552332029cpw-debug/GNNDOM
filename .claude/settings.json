@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show *)",
+      "Bash(python3 -c \"import warp; print\\(warp.__file__\\)\")",
+      "Bash(python3 -c \"import newton; print\\(newton.__file__\\)\")",
+      "Bash(python3 -c \"import newton.examples; print\\(newton.examples.__file__\\)\")"
+    ]
+  }
+}

@@ -55,6 +55,7 @@ class PlanConfig:
     fps: int = 60
     substeps: int = 8
     iterations: int = 8
+    air_drag: float = 0.0
     settle_steps: int = 420
     min_stable_steps: int = 100
     velocity_threshold: float = 0.03

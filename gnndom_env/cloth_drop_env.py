@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import math
 
 import numpy as np
 
@@ -36,6 +37,15 @@ def enforce_point_picker_kernel(
     particle_id = particle_ids[tid]
     particle_q[particle_id] = picker_pos[tid]
     particle_qd[particle_id] = picker_vel[tid]
+
+
+@wp.kernel
+def damp_particle_velocity_kernel(
+    particle_qd: wp.array[wp.vec3],
+    damping_factor: float,
+):
+    tid = wp.tid()
+    particle_qd[tid] = particle_qd[tid] * damping_factor
 
 
 class NewtonClothDropEnv:
@@ -120,6 +130,7 @@ class NewtonClothDropEnv:
             self.solver.step(self.state_0, self.state_1, self.control, self.contacts, self.sim_dt)
             self._apply_picker_arrays(self.state_1)
             self.state_0, self.state_1 = self.state_1, self.state_0
+            self._apply_air_drag(self.state_0)
 
     def step_until_stable(self, max_steps: int | None = None, velocity_threshold: float | None = None, min_steps: int | None = None) -> int:
         max_steps = self.runtime.settle_steps if max_steps is None else max_steps
@@ -226,5 +237,16 @@ class NewtonClothDropEnv:
             enforce_point_picker_kernel,
             dim=2,
             inputs=[state.particle_q, state.particle_qd, self.picker_ids, self.picker_pos, self.picker_vel, self.picker_grasp],
+            device=self.model.device,
+        )
+
+    def _apply_air_drag(self, state) -> None:
+        if self.runtime.air_drag <= 0.0:
+            return
+        damping_factor = float(math.exp(-float(self.runtime.air_drag) * float(self.sim_dt)))
+        wp.launch(
+            damp_particle_velocity_kernel,
+            dim=self.model.particle_count,
+            inputs=[state.particle_qd, damping_factor],
             device=self.model.device,
         )

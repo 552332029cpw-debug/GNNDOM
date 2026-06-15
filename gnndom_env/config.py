@@ -44,7 +44,12 @@ class ClothDropConfig:
     plane_size: float = 2.0
     plane_thickness: float = 0.02
     picker_radius: float = 0.05
-    contact_mu: float = 0.45
+    contact_ke: float = 1.0e5
+    contact_kd: float = 1.0e-2
+    contact_mu: float = 2.0
+    shape_contact_ke: float | None = None
+    shape_contact_kd: float | None = None
+    shape_contact_mu: float | None = None
     cloth_tri_damping: float = 1.0e-3
     cloth_edge_damping: float = 5.0e-2
 
@@ -56,6 +61,12 @@ class ClothDropConfig:
             raise ValueError("cloth_stiff must contain stretch, bend, and shear.")
         if self.target_type not in {"flat", "fold"}:
             raise ValueError("target_type must be flat or fold.")
+        if self.contact_ke <= 0.0:
+            raise ValueError("contact_ke must be positive.")
+        if self.contact_kd < 0.0:
+            raise ValueError("contact_kd must be non-negative.")
+        if self.contact_mu < 0.0:
+            raise ValueError("contact_mu must be non-negative.")
 
     @property
     def cloth_xdim(self) -> int:
@@ -123,6 +134,7 @@ class ClothDropRuntimeConfig:
     iterations: int = 8
     self_contact: bool = False
     contact_radius_scale: float = 0.5
+    air_drag: float = 0.0
     settle_steps: int = 420
     velocity_threshold: float = 0.03
     min_stable_steps: int = 100

@@ -135,6 +135,7 @@ class PlanRunner:
             fps=self.cfg.fps,
             substeps=self.cfg.substeps,
             iterations=self.cfg.iterations,
+            air_drag=self.cfg.air_drag,
             settle_steps=self.cfg.settle_steps,
             velocity_threshold=self.cfg.velocity_threshold,
             min_stable_steps=self.cfg.min_stable_steps,

@@ -112,11 +112,69 @@ python scripts/check_physical_target.py \
   --device cpu
 ```
 
-To view the obstacle, settled target, and optional geometric pre-settle ghost:
+To view the obstacle and target release-and-settle process:
 
 ```bash
 python scripts/view_physical_target.py \
   --env-shape sphere \
+  --target-type flat \
+  --device cuda \
+  --viewer gl
+```
+
+The viewer starts paused with the cloth held at `geometric_target_pos` by the
+target pickers. Press Space to release both pickers and simulate the fall into
+the physical `target_pos`. It shows only one cloth by default; pass
+`--show-geometric-target` only when you also want to overlay the pre-settle
+geometric debug mesh. For non-interactive smoke runs, pass `--no-start-paused`.
+
+Contact tuning matters for obstacle targets. The Newton VBD particle-rigid
+contact path averages cloth-side and shape-side material properties, then caps
+the warm-start contact penalty. GNNDOM therefore sets both soft and rigid shape
+contact material from:
+
+```bash
+--contact-ke 1e5 --contact-kd 1e-2 --contact-mu 2.0
+```
+
+Raising only `--contact-mu` is usually not enough if the normal contact penalty
+is too low, because friction is limited by the normal load.
+
+Target and obstacle geometry can be overridden from the CLI. For example:
+
+```bash
+python scripts/view_physical_target.py \
+  --target-type fold \
+  --env-shape sphere \
+  --x-target 0.08 \
+  --rot-angle 0.2 \
+  --shape-size 0.12 0.12 0.12 \
+  --device cuda \
+  --viewer gl
+```
+
+Use `--target-type flat|fold|random`, `--env-shape None|platform|sphere|rod|table|random|all`,
+`--shape-size ...`, and `--shape-pos x y z` to inspect specific scenes before
+regenerating data with the same flags.
+
+For `rod`, `--shape-size radius half_length` controls the horizontal capsule
+rod. The default is `0.005 0.25`.
+
+Rod scenes often need explicit velocity damping because a hanging cloth behaves
+like a pendulum. Start with:
+
+```bash
+python scripts/view_physical_target.py \
+  --env-shape rod \
+  --shape-size 0.006 0.30 \
+  --self-contact \
+  --substeps 16 \
+  --iterations 16 \
+  --contact-ke 5e4 \
+  --contact-kd 5e-2 \
+  --contact-mu 1.5 \
+  --air-drag 4.0 \
+  --device cuda \
   --viewer gl
 ```
 

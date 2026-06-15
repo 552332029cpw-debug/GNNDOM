@@ -27,12 +27,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cloth-particle-radius", type=float, default=0.00625)
     parser.add_argument("--cloth-mass", type=float, default=0.1)
     parser.add_argument("--cloth-stiffness", type=float, nargs=3, default=(0.9, 1.0, 0.9))
+    parser.add_argument("--contact-ke", type=float, default=1.0e5)
+    parser.add_argument("--contact-kd", type=float, default=1.0e-2)
+    parser.add_argument("--contact-mu", type=float, default=2.0)
     parser.add_argument("--target-type", choices=("flat", "fold", "random"), default="flat")
+    parser.add_argument("--x-target", type=float, default=None)
+    parser.add_argument("--rot-angle", type=float, default=None)
     parser.add_argument("--vary-cloth-size", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--vary-stiffness", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--vary-mass", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--vary-orientation", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--env-shape", choices=("None", "platform", "sphere", "rod", "table", "random", "all"), default="None")
+    parser.add_argument("--shape-size", type=float, nargs="+", default=None)
+    parser.add_argument("--shape-pos", type=float, nargs=3, default=None)
     parser.add_argument("--down-sample-scale", type=int, default=3)
     parser.add_argument("--voxel-size", type=float, default=0.0216)
     parser.add_argument("--observation-mode", choices=("isaac_camera", "full", "geometry_camera"), default="isaac_camera")
@@ -53,6 +60,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=int, default=60)
     parser.add_argument("--substeps", type=int, default=8)
     parser.add_argument("--iterations", type=int, default=8)
+    parser.add_argument("--air-drag", type=float, default=0.0)
     parser.add_argument("--settle-steps", type=int, default=420)
     parser.add_argument("--min-stable-steps", type=int, default=100)
     parser.add_argument("--velocity-threshold", type=float, default=0.03)
@@ -67,6 +75,9 @@ def main() -> None:
         cloth_size=(args.cloth_xdim, args.cloth_ydim),
         cloth_stiff=tuple(args.cloth_stiffness),
         mass=args.cloth_mass,
+        contact_ke=args.contact_ke,
+        contact_kd=args.contact_kd,
+        contact_mu=args.contact_mu,
         target_type="flat" if args.target_type == "random" else args.target_type,
     )
     dataset_cfg = DatasetGenerationConfig(
@@ -98,6 +109,7 @@ def main() -> None:
         substeps=args.substeps,
         iterations=args.iterations,
         self_contact=args.self_contact,
+        air_drag=args.air_drag,
         settle_steps=args.settle_steps,
         velocity_threshold=args.velocity_threshold,
         min_stable_steps=args.min_stable_steps,
@@ -114,6 +126,10 @@ def main() -> None:
             vary_mass=args.vary_mass,
             vary_orientation=args.vary_orientation,
             env_shape=None if args.env_shape == "None" else args.env_shape,
+            x_target=args.x_target,
+            rot_angle=args.rot_angle,
+            shape_size=None if args.shape_size is None else tuple(args.shape_size),
+            shape_pos=None if args.shape_pos is None else tuple(args.shape_pos),
         )
         collector = DataCollector(dataset_cfg, phase=phase, sampler=sampler, runtime=runtime, config_id_start=config_offset)
         collector.gen_dataset()

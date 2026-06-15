@@ -49,6 +49,12 @@ def soft_yaw_to_newton_quat(rot_angle: float) -> wp.quat:
     return wp.quat_from_axis_angle(wp.vec3(0.0, 0.0, 1.0), float(rot_angle))
 
 
+def horizontal_rod_quat(rot_angle: float) -> wp.quat:
+    yaw = soft_yaw_to_newton_quat(rot_angle)
+    z_to_y = wp.quat_from_axis_angle(wp.vec3(1.0, 0.0, 0.0), -math.pi * 0.5)
+    return yaw * z_to_y
+
+
 def build_model_from_config(
     cfg: ClothDropConfig,
     *,
@@ -67,8 +73,8 @@ def build_model_from_config(
 
     builder.color(include_bending=True)
     model = builder.finalize(requires_grad=False)
-    model.soft_contact_ke = 1.0e4
-    model.soft_contact_kd = 1.0e-2
+    model.soft_contact_ke = cfg.contact_ke
+    model.soft_contact_kd = cfg.contact_kd
     model.soft_contact_mu = cfg.contact_mu
     return model
 
@@ -86,6 +92,15 @@ def make_vbd_solver(model, cfg: ClothDropConfig, *, iterations: int, self_contac
         particle_vertex_contact_buffer_size=16,
         particle_edge_contact_buffer_size=20,
         particle_collision_detection_interval=-1,
+        rigid_contact_k_start=cfg.contact_ke,
+    )
+
+
+def shape_contact_config(builder, cfg: ClothDropConfig):
+    return builder.ShapeConfig(
+        ke=cfg.shape_contact_ke if cfg.shape_contact_ke is not None else cfg.contact_ke,
+        kd=cfg.shape_contact_kd if cfg.shape_contact_kd is not None else cfg.contact_kd,
+        mu=cfg.shape_contact_mu if cfg.shape_contact_mu is not None else cfg.contact_mu,
     )
 
 
@@ -135,13 +150,14 @@ def add_cloth_mesh(builder, cfg: ClothDropConfig, positions_soft: np.ndarray, *,
 def add_ground(builder, cfg: ClothDropConfig) -> None:
     plane_half = 0.5 * cfg.plane_size * SIM_SCALE
     plane_half_z = 0.5 * cfg.plane_thickness * SIM_SCALE
+    shape_cfg = shape_contact_config(builder, cfg)
     builder.add_shape_box(
         -1,
         wp.transform(wp.vec3(0.0, 0.0, -plane_half_z), wp.quat_identity()),
         hx=plane_half,
         hy=plane_half,
         hz=plane_half_z,
-        color=wp.vec3(0.45, 0.45, 0.47),
+        cfg=shape_cfg,
     )
 
 
@@ -151,41 +167,46 @@ def add_obstacle(builder, cfg: ClothDropConfig) -> None:
         return
     pos = soft_vec_to_newton(obstacle.shape_pos, scale=SIM_SCALE)
     size = tuple(float(v) * SIM_SCALE for v in obstacle.shape_size)
-    color = wp.vec3(0.55, 0.55, 0.58)
     quat = soft_yaw_to_newton_quat(obstacle.rot_angle)
 
     if obstacle.env_shape == "platform":
-        add_box(builder, pos, size, quat, color)
+        add_box(builder, cfg, pos, size, quat)
         return
     if obstacle.env_shape == "sphere":
-        builder.add_shape_sphere(-1, wp.transform(pos, wp.quat_identity()), radius=size[0], color=color)
+        builder.add_shape_sphere(-1, wp.transform(pos, wp.quat_identity()), radius=size[0], cfg=shape_contact_config(builder, cfg))
         return
     if obstacle.env_shape == "rod":
-        rod_quat = soft_yaw_to_newton_quat(obstacle.rot_angle + math.pi / 2.0)
-        builder.add_shape_capsule(-1, wp.transform(pos, rod_quat), radius=size[0], half_height=size[1], color=color)
+        rod_quat = horizontal_rod_quat(obstacle.rot_angle)
+        builder.add_shape_capsule(-1, wp.transform(pos, rod_quat), radius=size[0], half_height=size[1], cfg=shape_contact_config(builder, cfg))
         return
     if obstacle.env_shape == "table":
-        add_box(builder, pos, size, quat, color)
-        add_table_legs(builder, obstacle.shape_pos, obstacle.rot_angle, color)
+        add_box(builder, cfg, pos, size, quat)
+        add_table_legs(builder, cfg, obstacle.shape_pos, obstacle.rot_angle)
         return
     raise ValueError(f"Unknown env_shape: {obstacle.env_shape}")
 
 
-def add_box(builder, pos: wp.vec3, size: tuple[float, ...], quat: wp.quat, color: wp.vec3) -> None:
+def add_box(builder, cfg: ClothDropConfig, pos: wp.vec3, size: tuple[float, ...], quat: wp.quat) -> None:
     hx = size[0]
     hy = size[1] if len(size) > 1 else size[0]
     hz = size[2] if len(size) > 2 else size[0]
-    builder.add_shape_box(-1, wp.transform(pos, quat), hx=hx, hy=hy, hz=hz, color=color)
+    builder.add_shape_box(-1, wp.transform(pos, quat), hx=hx, hy=hy, hz=hz, cfg=shape_contact_config(builder, cfg))
 
 
-def add_table_legs(builder, table_pos_soft: tuple[float, float, float], rot_angle: float, color: wp.vec3) -> None:
+def add_table_legs(builder, cfg: ClothDropConfig, table_pos_soft: tuple[float, float, float], rot_angle: float) -> None:
     leg_radius = 0.01 * SIM_SCALE
     leg_half_height = max(0.01 * SIM_SCALE, table_pos_soft[2] * SIM_SCALE * 0.5)
     for sx in (-0.08, 0.08):
         for sy in (-0.08, 0.08):
             leg_soft = np.asarray(table_pos_soft, dtype=np.float32) + np.array([sx, sy, -table_pos_soft[2] * 0.5], dtype=np.float32)
             leg_pos = soft_vec_to_newton(leg_soft, scale=SIM_SCALE)
-            builder.add_shape_capsule(-1, wp.transform(leg_pos, wp.quat_identity()), radius=leg_radius, half_height=leg_half_height, color=color)
+            builder.add_shape_capsule(
+                -1,
+                wp.transform(leg_pos, wp.quat_identity()),
+                radius=leg_radius,
+                half_height=leg_half_height,
+                cfg=shape_contact_config(builder, cfg),
+            )
 
 
 def vertical_positions_for_config(cfg: ClothDropConfig) -> np.ndarray:
