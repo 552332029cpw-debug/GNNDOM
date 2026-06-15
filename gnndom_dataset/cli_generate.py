@@ -53,7 +53,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=int, default=60)
     parser.add_argument("--substeps", type=int, default=8)
     parser.add_argument("--iterations", type=int, default=8)
-    parser.add_argument("--settle-steps", type=int, default=2)
+    parser.add_argument("--settle-steps", type=int, default=420)
+    parser.add_argument("--min-stable-steps", type=int, default=100)
     parser.add_argument("--velocity-threshold", type=float, default=0.03)
     parser.add_argument("--self-contact", action=argparse.BooleanOptionalAction, default=False)
     return parser.parse_args()
@@ -99,7 +100,7 @@ def main() -> None:
         self_contact=args.self_contact,
         settle_steps=args.settle_steps,
         velocity_threshold=args.velocity_threshold,
-        min_stable_steps=0,
+        min_stable_steps=args.min_stable_steps,
     )
 
     train_count = int(args.n_rollout * args.train_valid_ratio)

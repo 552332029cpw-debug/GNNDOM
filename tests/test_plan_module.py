@@ -8,7 +8,8 @@ import unittest
 import numpy as np
 
 from gnndom_plan.actions import split_action
-from gnndom_plan.graph import build_online_velocity_history, downsample_indices
+from gnndom_plan.config import PlanConfig
+from gnndom_plan.graph import OnlineVisibleGraphBuilder, build_online_velocity_history, downsample_indices
 from gnndom_plan.planner import actions_from_picker_trajectory, generate_trajectory_zup
 
 
@@ -54,6 +55,41 @@ class PlanUtilityTests(unittest.TestCase):
         self.assertEqual(history.shape, (2, 9))
         np.testing.assert_allclose(history[:, :6], np.zeros((2, 6), dtype=np.float32))
         np.testing.assert_allclose(history[:, 6:], np.ones((2, 3), dtype=np.float32))
+
+    def test_rollout_info_uses_env_physical_target_state(self) -> None:
+        class FakeEnv:
+            def target_state(self):
+                return {
+                    "target_pos": np.full((4, 3), 7.0, dtype=np.float32),
+                    "geometric_target_pos": np.zeros((4, 3), dtype=np.float32),
+                    "target_picker_pos": np.ones((2, 3), dtype=np.float32),
+                    "target_settle_steps": np.asarray(12, dtype=np.int32),
+                }
+
+        class FakeScene:
+            cloth_particle_radius = 0.01
+            cloth_xdim = 2
+            cloth_ydim = 2
+            cloth_size = (2, 2)
+            cloth_stiff = (0.9, 1.0, 0.9)
+            mass = 0.1
+            x_target = 0.1
+            rot_angle = 0.0
+            env_shape = "sphere"
+            obstacle = None
+
+        cfg = PlanConfig(dyn_path=__file__)
+        info = OnlineVisibleGraphBuilder(cfg).make_rollout_info(
+            FakeEnv(),
+            FakeScene(),
+            config_id=0,
+            downsample_idx=np.asarray([0, 1, 2, 3], dtype=np.int64),
+            downsample_x_dim=2,
+            downsample_y_dim=2,
+        )
+        np.testing.assert_allclose(info["target_pos"], np.full((4, 3), 7.0, dtype=np.float32))
+        np.testing.assert_allclose(info["geometric_target_pos"], np.zeros((4, 3), dtype=np.float32))
+        self.assertEqual(int(info["target_settle_steps"]), 12)
 
 
 if __name__ == "__main__":

@@ -57,6 +57,7 @@ class OnlineVisibleGraphBuilder:
 
     def make_rollout_info(
         self,
+        env: Any,
         scene_cfg: Any,
         *,
         config_id: int,
@@ -64,7 +65,8 @@ class OnlineVisibleGraphBuilder:
         downsample_x_dim: int,
         downsample_y_dim: int,
     ) -> dict:
-        target_pos = flat_positions_zup(scene_cfg).astype(np.float32)
+        target_state = env.target_state()
+        target_pos = np.asarray(target_state["target_pos"], dtype=np.float32)
         info = {
             "scene_params": np.asarray(
                 [scene_cfg.cloth_particle_radius, downsample_x_dim, downsample_y_dim, config_id],
@@ -72,7 +74,9 @@ class OnlineVisibleGraphBuilder:
             ),
             "downsample_idx": np.asarray(downsample_idx, dtype=np.int64),
             "target_pos": target_pos,
-            "target_picker_pos": target_picker_positions_zup(scene_cfg).astype(np.float32),
+            "geometric_target_pos": np.asarray(target_state["geometric_target_pos"], dtype=np.float32),
+            "target_picker_pos": np.asarray(target_state["target_picker_pos"], dtype=np.float32),
+            "target_settle_steps": np.asarray(target_state["target_settle_steps"], dtype=np.int32),
             "drop_point_idx": drop_point_indices_zup(scene_cfg.cloth_xdim, scene_cfg.cloth_ydim),
             "ClothSize": np.asarray([scene_cfg.cloth_xdim, scene_cfg.cloth_ydim], dtype=np.int64),
             "ClothStiff": np.asarray(scene_cfg.cloth_stiff, dtype=np.float32),
@@ -111,6 +115,7 @@ class OnlineVisibleGraphBuilder:
             self.cfg.down_sample_scale,
         )
         rollout_info = self.make_rollout_info(
+            env,
             scene_cfg,
             config_id=config_id,
             downsample_idx=downsample_idx,

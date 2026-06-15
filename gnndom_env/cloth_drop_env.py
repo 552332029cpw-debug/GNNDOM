@@ -59,6 +59,8 @@ class NewtonClothDropEnv:
         self.picker_grasp_np = np.ones(2, dtype=np.int32)
         self.picker_grasp = None
         self._prev_positions: np.ndarray | None = None
+        self._settled_target_pos: np.ndarray | None = None
+        self._settled_target_steps: int | None = None
 
     def setup(self, *, initial: str = "vertical") -> None:
         configure_device(self.runtime.device)
@@ -78,9 +80,32 @@ class NewtonClothDropEnv:
         self._build(initial_positions=None)
         self.enable_fixed_pickers()
 
-    def reset_to_target(self) -> None:
+    def reset_to_target(self, *, grasp: bool = True) -> None:
         self._build(initial_positions=flat_positions(self.cfg))
-        self.set_picker_positions(target_picker_positions(self.cfg))
+        grasp_flags = np.ones(2, dtype=np.int32) if grasp else np.zeros(2, dtype=np.int32)
+        self.set_picker_positions(target_picker_positions(self.cfg), grasp_flags=grasp_flags)
+
+    def settled_target_positions(self, *, force: bool = False) -> np.ndarray:
+        """Return the physical target after settling the geometric target in-scene."""
+        if self._settled_target_pos is not None and not force:
+            return self._settled_target_pos.copy()
+
+        target_env = NewtonClothDropEnv(self.cfg, self.runtime)
+        target_env.reset_to_target(grasp=False)
+        steps = target_env.step_until_stable()
+        self._settled_target_pos = target_env.current_positions().astype(np.float32)
+        self._settled_target_steps = int(steps)
+        return self._settled_target_pos.copy()
+
+    def target_state(self, *, force: bool = False) -> dict:
+        target_pos = self.settled_target_positions(force=force)
+        geometric_target_pos = flat_positions(self.cfg).astype(np.float32)
+        return {
+            "target_pos": target_pos,
+            "geometric_target_pos": geometric_target_pos,
+            "target_picker_pos": target_picker_positions(self.cfg).astype(np.float32),
+            "target_settle_steps": np.asarray(self._settled_target_steps if self._settled_target_steps is not None else -1, dtype=np.int32),
+        }
 
     def step(self) -> None:
         assert self.model is not None and self.state_0 is not None and self.state_1 is not None
@@ -110,8 +135,7 @@ class NewtonClothDropEnv:
 
     def get_current_config(self) -> dict:
         config = self.cfg.to_manifabric_dict()
-        config["target_pos"] = flat_positions(self.cfg)
-        config["target_picker_pos"] = target_picker_positions(self.cfg)
+        config.update(self.target_state())
         config["drop_point_idx"] = self.picker_ids_np.astype(np.int64)
         config["runtime"] = asdict(self.runtime)
         return config

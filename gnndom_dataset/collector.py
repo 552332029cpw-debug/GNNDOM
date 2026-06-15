@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from gnndom_env import ClothDropConfig, ClothDropRuntimeConfig, ManiFabricClothDropSampler, NewtonClothDropEnv
-from gnndom_env.geometry import drop_point_indices, flat_positions, target_picker_positions
+from gnndom_env.geometry import drop_point_indices, target_picker_positions
 from gnndom_obs import CameraConfig
 
 from .sampling import downsample_indices, full_observation, geometry_camera_observation, isaac_camera_observation
@@ -140,13 +140,16 @@ class DataCollector:
         if not env_info:
             return step_data
 
-        target_pos = flat_positions(scene_cfg).astype(np.float32)
-        target_picker_pos = target_picker_positions(scene_cfg).astype(np.float32)
+        target_state = env.target_state()
+        target_pos = np.asarray(target_state["target_pos"], dtype=np.float32)
+        target_picker_pos = np.asarray(target_state["target_picker_pos"], dtype=np.float32)
         rollout_info = {
             "scene_params": np.asarray([scene_cfg.cloth_particle_radius, downsample_x_dim, downsample_y_dim, config_id], dtype=np.float32),
             "downsample_idx": downsample_idx,
             "target_pos": target_pos,
+            "geometric_target_pos": np.asarray(target_state["geometric_target_pos"], dtype=np.float32),
             "target_picker_pos": target_picker_pos,
+            "target_settle_steps": np.asarray(target_state["target_settle_steps"], dtype=np.int32),
             "drop_point_idx": drop_point_indices(scene_cfg.cloth_xdim, scene_cfg.cloth_ydim),
             "ClothSize": np.asarray([scene_cfg.cloth_xdim, scene_cfg.cloth_ydim], dtype=np.int64),
             "ClothStiff": np.asarray(scene_cfg.cloth_stiff, dtype=np.float32),
